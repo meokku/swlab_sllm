@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "293618113363",
+    "project_id": "skkullm",
+    "storage_bucket": "skkullm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:293618113363:android:2a9a4fff0ed0b7d2a19fa6",
+        "android_client_info": {
+          "package_name": "com.example.swlab_sllm_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe6YrxD6C4ZPvvifcLTU-MQZ6mnf2tEPg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
