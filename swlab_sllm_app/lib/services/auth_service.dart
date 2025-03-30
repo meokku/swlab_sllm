@@ -27,6 +27,9 @@ class AuthService {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    // 사용자 정보 리로드
+    await userCredential.user?.reload();
+
     return userCredential;
   }
 
@@ -47,6 +50,14 @@ class AuthService {
   // 로그아웃
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  // reload 함수
+  Future<void> reloadUser() async {
+    final user = _auth.currentUser;
+    if (user != null) {
+      await user.reload();
+    }
   }
 
   // 현재 사용자 가져오기

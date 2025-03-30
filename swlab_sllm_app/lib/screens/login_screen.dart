@@ -62,6 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: Image.asset(
           "assets/images/SKKULLM.png",
           width: 120,

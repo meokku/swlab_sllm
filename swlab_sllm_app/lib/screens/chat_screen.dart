@@ -1,12 +1,13 @@
-// lib/screens/chat_screen.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:swlab_sllm_app/models/chat_models.dart';
+import 'package:swlab_sllm_app/providers/active_chat_provider.dart';
+import 'package:swlab_sllm_app/providers/chat_session_provider.dart';
 import 'package:swlab_sllm_app/services/auth_service.dart';
 import 'package:swlab_sllm_app/theme/colors.dart';
 import 'package:swlab_sllm_app/utils/profile_menu.dart';
-import '../providers/chat_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -120,11 +121,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final chatProvider = Provider.of<ChatProvider>(context);
+    final chatSessionProvider = Provider.of<ChatSessionProvider>(context);
+    final activeChatProvider = Provider.of<ActiveChatProvider>(context);
     final user = _authService.currentUser;
 
     // 새 메시지가 추가되면 스크롤
-    if (chatProvider.messages.isNotEmpty) {
+    if (activeChatProvider.messages.isNotEmpty) {
       _scrollToBottom();
     }
 
@@ -153,6 +155,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         child: InkWell(
                           onTap: () {
                             print('새 채팅 버튼이 클릭되었습니다');
+                            Navigator.pushReplacementNamed(
+                                context, '/'); // 화면 교체
                           },
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -208,38 +212,50 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       ),
                       // 채팅 목록
                       Expanded(
-                        child: ListView.builder(
-                          itemCount: 3, // 실제 데이터 길이로 변경 예정
-                          itemBuilder: (context, index) {
-                            // 샘플 데이터 (실제로는 데이터 모델에서 가져옴)
-                            final chatItems = [
-                              {"text": "세 번째 대화", "isSelected": true},
-                              {"text": "두 번째 대화", "isSelected": false},
-                              {"text": "첫 번째 대화", "isSelected": false},
-                            ];
-                            return Material(
-                              color: chatItems[index]["isSelected"] == true
-                                  ? Colors.grey[300]
-                                  : Colors.grey[100],
-                              child: InkWell(
-                                onTap: () {
-                                  print(
-                                      '채팅 "${chatItems[index]["text"]}"이 클릭되었습니다');
+                        child: chatSessionProvider.isLoading
+                            ? Center(child: CircularProgressIndicator())
+                            : ListView.builder(
+                                itemCount: chatSessionProvider
+                                        .chatSessions.isEmpty
+                                    ? 1
+                                    : chatSessionProvider.chatSessions.length,
+                                itemBuilder: (context, index) {
+                                  if (chatSessionProvider
+                                      .chatSessions.isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(16.0),
+                                      child: Text("채팅 내역이 없습니다.",
+                                          style: TextStyle(color: Colors.grey)),
+                                    );
+                                  }
+
+                                  final chat =
+                                      chatSessionProvider.chatSessions[index];
+                                  final isSelected = chat.id ==
+                                      chatSessionProvider.activeChat?.id;
+
+                                  return Material(
+                                    color: isSelected
+                                        ? Colors.grey[300]
+                                        : Colors.grey[100],
+                                    child: InkWell(
+                                      onTap: () {
+                                        chatSessionProvider.selectChat(chat.id);
+                                      },
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: EdgeInsets.symmetric(
+                                            vertical: 8, horizontal: 12),
+                                        child: Text(
+                                          chat.title,
+                                          style: TextStyle(fontSize: 14),
+                                        ),
+                                      ),
+                                    ),
+                                  );
                                 },
-                                child: Container(
-                                  width: double.infinity, // 가로 전체 너비 사용
-                                  padding: EdgeInsets.symmetric(
-                                      vertical: 8, horizontal: 12),
-                                  child: Text(
-                                    chatItems[index]["text"] as String,
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                ),
                               ),
-                            );
-                          },
-                        ),
-                      )
+                      ),
                     ]
                   ],
                 ),
@@ -263,16 +279,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     child: ListView.builder(
                       controller: _scrollController,
                       padding: EdgeInsets.all(16.0),
-                      itemCount: chatProvider.isLoading
-                          ? chatProvider.messages.length + 1 // 로딩 중이면 추가 항목
-                          : chatProvider.messages.length,
+                      itemCount: activeChatProvider.isLoading
+                          ? activeChatProvider.messages.length + 1
+                          : activeChatProvider.messages.length,
                       itemBuilder: (context, index) {
                         // 마지막 항목이고 로딩 중이라면 로딩 표시기 반환
-                        if (chatProvider.isLoading &&
-                            index == chatProvider.messages.length) {
+                        if (activeChatProvider.isLoading &&
+                            index == activeChatProvider.messages.length) {
                           return _buildLoadingText();
                         }
-                        final message = chatProvider.messages[index];
+                        final message = activeChatProvider.messages[index];
                         return _buildMessageBubble(message);
                       },
                     ),
@@ -317,8 +333,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                               horizontal: 20.0),
                                         ),
                                         onSubmitted: (text) {
-                                          if (!chatProvider.isLoading) {
-                                            chatProvider.sendMessage(text);
+                                          if (!activeChatProvider.isLoading) {
+                                            activeChatProvider
+                                                .sendMessage(text);
                                             _textController.clear();
                                           }
                                         },
@@ -335,8 +352,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                         icon: Icon(Icons.arrow_upward,
                                             color: Colors.white),
                                         onPressed: () {
-                                          if (!chatProvider.isLoading) {
-                                            chatProvider.sendMessage(
+                                          if (!activeChatProvider.isLoading) {
+                                            activeChatProvider.sendMessage(
                                                 _textController.text);
                                             _textController.clear();
                                           }

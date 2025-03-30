@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:swlab_sllm_app/providers/chat_provider.dart';
+import 'package:swlab_sllm_app/providers/active_chat_provider.dart';
+import 'package:swlab_sllm_app/providers/chat_session_provider.dart';
 import 'package:swlab_sllm_app/screens/chat_screen.dart';
 import 'package:swlab_sllm_app/services/auth_service.dart';
 import 'package:swlab_sllm_app/theme/colors.dart';
@@ -25,6 +26,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isSidebarExpanded = true;
   late AnimationController _sidebarAnimationController;
   late Animation<double> _sidebarAnimation;
+
+  // 유저 정보 관련 변수
+  bool _isLoadingUserInfo = true;
+  String? _userName;
 
   // 오버레이 제거 함수
   void _removeOverlay() {
@@ -77,6 +82,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       parent: _sidebarAnimationController,
       curve: Curves.easeInOut,
     ));
+
+    _loadUserInfo();
+  }
+
+  // 사용자 정보를 로드하는 메서드
+  Future<void> _loadUserInfo() async {
+    setState(() {
+      _isLoadingUserInfo = true;
+    });
+
+    try {
+      // 현재 사용자가 있는지 확인
+      final user = _authService.currentUser;
+      if (user != null) {
+        // Firebase에서 최신 사용자 정보 가져오기
+        await user.reload();
+
+        // 리로드 후 최신 사용자 정보 참조
+        final updatedUser = _authService.currentUser;
+
+        // 이름이 없으면 최대 3번 더 시도
+        int attempts = 0;
+        while (updatedUser?.displayName == null && attempts < 3) {
+          await Future.delayed(Duration(seconds: 1));
+          await user.reload();
+          attempts++;
+        }
+
+        setState(() {
+          _userName = _authService.currentUser?.displayName;
+          _isLoadingUserInfo = false;
+        });
+      } else {
+        setState(() {
+          _userName = null;
+          _isLoadingUserInfo = false;
+        });
+      }
+    } catch (e) {
+      print('사용자 정보 로드 오류: $e');
+      setState(() {
+        _isLoadingUserInfo = false;
+      });
+    }
   }
 
   @override
@@ -89,7 +138,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final chatProvider = Provider.of<ChatProvider>(context);
+    final chatSessionProvider = Provider.of<ChatSessionProvider>(context);
+    final activeChatProvider = Provider.of<ActiveChatProvider>(context);
     final user = _authService.currentUser;
 
     // 화면 크기 가져오기
@@ -98,6 +148,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     // 최소 높이 적용
     final containerHeight = screenHeight > minHeight ? screenHeight : minHeight;
+
+    // 사용자 정보 상태에 따른 표시
+    Widget buildGreeting() {
+      if (_isLoadingUserInfo) {
+        return Column(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 10),
+            Text("사용자 정보를 불러오는 중...", style: TextStyle(fontSize: 18)),
+          ],
+        );
+      } else {
+        return Text(
+          "안녕하세요, ${_userName ?? '사용자'} 님",
+          style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+        );
+      }
+    }
 
     return Scaffold(
       body: Stack(
@@ -126,7 +194,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           color: Colors.transparent, // 배경색 투명하게 설정
                           child: InkWell(
                             onTap: () {
-                              print('새 채팅 버튼이 클릭되었습니다');
+                              // 이미 홈 화면에 있으므로, 텍스트 필드에 포커스
+                              FocusScope.of(context).requestFocus(FocusNode());
+                              _textController.clear();
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -182,36 +252,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                         // 채팅 목록
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: 3, // 실제 데이터 길이로 변경 예정
-                            itemBuilder: (context, index) {
-                              // 샘플 데이터 (실제로는 데이터 모델에서 가져옴)
-                              final chatItems = [
-                                {"text": "세 번째 대화"},
-                                {"text": "두 번째 대화"},
-                                {"text": "첫 번째 대화"},
-                              ];
-                              return Material(
-                                color: Colors.grey[100],
-                                child: InkWell(
-                                  onTap: () {
-                                    print(
-                                        '채팅 "${chatItems[index]["text"]}"이 클릭되었습니다');
+                          child: chatSessionProvider.isLoading
+                              ? Center(child: CircularProgressIndicator())
+                              : ListView.builder(
+                                  itemCount:
+                                      chatSessionProvider.chatSessions.length,
+                                  itemBuilder: (context, index) {
+                                    final chat =
+                                        chatSessionProvider.chatSessions[index];
+
+                                    return Material(
+                                      color: Colors.grey[100],
+                                      child: InkWell(
+                                        onTap: () {
+                                          // 해당 채팅만 선택 (새 채팅 생성 안 함)
+                                          chatSessionProvider
+                                              .selectChat(chat.id);
+
+                                          // 채팅 화면으로 이동
+                                          Navigator.pushReplacementNamed(
+                                              context, '/chat');
+                                        },
+                                        child: Container(
+                                          width: double.infinity,
+                                          padding: EdgeInsets.symmetric(
+                                              vertical: 8, horizontal: 12),
+                                          child: Text(
+                                            chat.title,
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                        ),
+                                      ),
+                                    );
                                   },
-                                  child: Container(
-                                    width: double.infinity, // 가로 전체 너비 사용
-                                    padding: EdgeInsets.symmetric(
-                                        vertical: 8, horizontal: 12),
-                                    child: Text(
-                                      chatItems[index]["text"] as String,
-                                      style: TextStyle(fontSize: 14),
-                                    ),
-                                  ),
                                 ),
-                              );
-                            },
-                          ),
-                        )
+                        ),
                       ]
                     ],
                   ),
@@ -236,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           kToolbarHeight + MediaQuery.of(context).padding.top,
                       padding: EdgeInsets.only(
                           top: MediaQuery.of(context).padding.top),
-                      color: null,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -281,11 +355,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            "안녕하세요, ${user?.displayName} 님",
-                            style: TextStyle(
-                                fontSize: 30, fontWeight: FontWeight.bold),
-                          ),
+                          buildGreeting(),
                           SizedBox(height: 40),
                           // 채팅 입력 영역
                           Center(
@@ -336,18 +406,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                                               vertical: 20,
                                                               horizontal: 20.0),
                                                     ),
-                                                    onSubmitted: (text) {
-                                                      if (!chatProvider
+                                                    onSubmitted: (text) async {
+                                                      if (!activeChatProvider
                                                               .isLoading &&
                                                           _textController.text
                                                               .isNotEmpty) {
-                                                        chatProvider
-                                                            .sendMessage(text);
-                                                        _textController.clear();
+                                                        try {
+                                                          // 1. 새 채팅 생성 (비동기 메서드)
+                                                          await chatSessionProvider
+                                                              .createNewChat();
 
-                                                        // ChatScreen으로 이동
-                                                        Navigator.pushNamed(
-                                                            context, '/chat');
+                                                          // 2. 생성된 새 채팅에 메시지 전송
+                                                          await activeChatProvider
+                                                              .sendMessage(
+                                                                  text);
+                                                          _textController
+                                                              .clear();
+
+                                                          // 3. 채팅 화면으로 이동
+                                                          Navigator
+                                                              .pushReplacementNamed(
+                                                                  context,
+                                                                  '/chat');
+                                                        } catch (e) {
+                                                          // 오류 처리
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                            SnackBar(
+                                                                content: Text(
+                                                                    '오류가 발생했습니다: $e')),
+                                                          );
+                                                        }
                                                       }
                                                     },
                                                   ),
@@ -363,20 +453,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                                     icon: Icon(
                                                         Icons.arrow_upward,
                                                         color: Colors.white),
-                                                    onPressed: () {
-                                                      if (!chatProvider
+                                                    onPressed: () async {
+                                                      if (!activeChatProvider
                                                               .isLoading &&
                                                           _textController.text
                                                               .isNotEmpty) {
-                                                        chatProvider
-                                                            .sendMessage(
-                                                                _textController
-                                                                    .text);
-                                                        _textController.clear();
+                                                        try {
+                                                          // 1. 새 채팅 생성 (비동기 메서드)
+                                                          await chatSessionProvider
+                                                              .createNewChat();
 
-                                                        // ChatScreen으로 이동
-                                                        Navigator.pushNamed(
-                                                            context, '/chat');
+                                                          // 2. 생성된 새 채팅에 메시지 전송
+                                                          await activeChatProvider
+                                                              .sendMessage(
+                                                                  _textController
+                                                                      .text);
+                                                          _textController
+                                                              .clear();
+
+                                                          // 3. 채팅 화면으로 이동
+                                                          Navigator
+                                                              .pushReplacementNamed(
+                                                                  context,
+                                                                  '/chat');
+                                                        } catch (e) {
+                                                          // 오류 처리
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                            SnackBar(
+                                                                content: Text(
+                                                                    '오류가 발생했습니다: $e')),
+                                                          );
+                                                        }
                                                       }
                                                     },
                                                   ),
