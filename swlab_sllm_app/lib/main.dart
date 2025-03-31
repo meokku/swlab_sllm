@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
         // LLM 서비스
         Provider<LlmService>(
           create: (context) => LlmService(
-            baseUrl: 'https://9b77-115-145-67-222.ngrok-free.app',
+            baseUrl: 'http://115.145.067.222:8000/predict/',
           ),
         ),
 
@@ -85,7 +85,7 @@ class MyApp extends StatelessWidget {
         initialRoute: '/',
         routes: {
           '/': (context) => Wrapper(),
-          '/home': (context) => HomeScreen(),
+          // '/home': (context) => HomeScreen(),
           '/login': (context) => LoginScreen(),
           '/signup': (context) => SignUpScreen(),
           '/chat': (context) => ChatScreen(),

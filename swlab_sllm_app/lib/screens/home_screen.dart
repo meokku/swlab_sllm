@@ -8,7 +8,9 @@ import 'package:swlab_sllm_app/theme/colors.dart';
 import 'package:swlab_sllm_app/utils/profile_menu.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? initialUserName;
+
+  const HomeScreen({super.key, required this.initialUserName});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -83,48 +85,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     ));
 
-    _loadUserInfo();
+    // Wrapper에서 전달받은 사용자 이름이 있으면 사용
+    if (widget.initialUserName != null) {
+      setState(() {
+        _userName = widget.initialUserName;
+        _isLoadingUserInfo = false;
+      });
+    } else {
+      // 전달받은 이름이 없는 경우에는 간소화된 방식으로 정보 로드
+      _loadUserInfoSimplified();
+    }
   }
 
   // 사용자 정보를 로드하는 메서드
-  Future<void> _loadUserInfo() async {
+  Future<void> _loadUserInfoSimplified() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoadingUserInfo = true;
     });
 
     try {
-      // 현재 사용자가 있는지 확인
       final user = _authService.currentUser;
-      if (user != null) {
-        // Firebase에서 최신 사용자 정보 가져오기
-        await user.reload();
-
-        // 리로드 후 최신 사용자 정보 참조
-        final updatedUser = _authService.currentUser;
-
-        // 이름이 없으면 최대 3번 더 시도
-        int attempts = 0;
-        while (updatedUser?.displayName == null && attempts < 3) {
-          await Future.delayed(Duration(seconds: 1));
-          await user.reload();
-          attempts++;
-        }
-
+      if (mounted) {
         setState(() {
-          _userName = _authService.currentUser?.displayName;
-          _isLoadingUserInfo = false;
-        });
-      } else {
-        setState(() {
-          _userName = null;
+          _userName = user?.displayName;
           _isLoadingUserInfo = false;
         });
       }
     } catch (e) {
       print('사용자 정보 로드 오류: $e');
-      setState(() {
-        _isLoadingUserInfo = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingUserInfo = false;
+        });
+      }
     }
   }
 

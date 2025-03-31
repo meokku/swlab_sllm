@@ -18,7 +18,14 @@ class Wrapper extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.active) {
           final user = snapshot.data;
-          return user != null ? HomeScreen() : LoginScreen();
+
+          if (user != null) {
+            // 사용자가 로그인 된 경우, 사용자 이름을 전달
+            return HomeScreen(initialUserName: user.displayName);
+          } else {
+            // 로그인 되지 않은 경우
+            return LoginScreen();
+          }
         }
 
         // 연결 중이거나 에러 상태
