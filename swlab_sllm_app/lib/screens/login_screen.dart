@@ -84,13 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(
-      //   backgroundColor: Colors.white,
-      //   title: Image.asset(
-      //     "assets/images/SKKULLM.png",
-      //     width: 120,
-      //   ),
-      // ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Form(
@@ -119,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       // 이메일 입력 영역
                       IconTextFormField(
-                        icon: Icons.person_outline,
+                        icon: Icons.email_outlined,
                         hintText: '이메일',
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
@@ -141,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: Icons.lock_outline,
                         hintText: '비밀번호',
                         obscureText: true,
-                        hasPasswordToggle: true, // 비밀번호 가시성 토글 활성화
+                        hasPasswordToggle: true,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return '비밀번호를 입력하세요';

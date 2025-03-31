@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:swlab_sllm_app/models/chat_models.dart';
@@ -12,7 +13,7 @@ class ActiveChatProvider with ChangeNotifier {
 
   List<Message> _messages = [];
   bool _isLoading = false;
-  Stream<QuerySnapshot>? _messagesStream;
+  StreamSubscription? _messagesStreamSubscription;
 
   ActiveChatProvider({
     required LlmService llmService,
@@ -31,34 +32,76 @@ class ActiveChatProvider with ChangeNotifier {
 
   void _onActiveChatChanged() {
     final activeChat = _chatSessionProvider.activeChat;
+    print('Active chat changed: ${activeChat?.id}'); // 디버그 로그 추가
+
+    // 메시지 스트림 구독 취소
+    _messagesStreamSubscription?.cancel();
+
+    // 메시지 목록 초기화
+    _messages.clear();
+
     if (activeChat != null) {
+      // 강제로 메시지 다시 로드
       _loadMessages(activeChat.id);
     } else {
-      _messages = [];
       notifyListeners();
     }
   }
 
   void _loadMessages(String chatId) {
+    print('Loading messages for chat: $chatId'); // 디버그 로그 추가
+
     // 이전 스트림 구독 취소
-    _messagesStream = null;
+    _messagesStreamSubscription?.cancel();
+
+    // 현재 사용자 ID 체크
+    final currentUserId = _firebaseService.currentUserId;
+    if (currentUserId == null) {
+      print('No current user, cannot load messages');
+      return;
+    }
 
     // 새 스트림 구독
-    _messagesStream = _firebaseService.getChatMessages(chatId);
-    _messagesStream?.listen((snapshot) {
-      _messages = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return Message(
-          content: data['content'] ?? '',
-          isUser: data['isUser'] ?? true,
-          timestamp: data['timestamp'] != null
-              ? (data['timestamp'] as Timestamp).toDate()
-              : DateTime.now(),
-        );
-      }).toList();
+    _messagesStreamSubscription =
+        _firebaseService.getChatMessages(chatId).listen(
+      (snapshot) {
+        print('Received ${snapshot.docs.length} messages'); // 디버그 로그 추가
 
-      notifyListeners();
-    });
+        _messages = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return Message(
+            content: data['content'] ?? '',
+            isUser: data['isUser'] ?? true,
+            timestamp: data['timestamp'] != null
+                ? (data['timestamp'] as Timestamp).toDate()
+                : DateTime.now(),
+          );
+        }).toList();
+
+        notifyListeners();
+      },
+      onError: (error) {
+        print('Error loading messages: $error'); // 에러 로그 추가
+      },
+      cancelOnError: true,
+    );
+  }
+
+  void setInitialMessage(String content) {
+    // 사용자 메시지 객체 생성
+    final userMessage = Message(
+      content: content,
+      isUser: true,
+      timestamp: DateTime.now(),
+    );
+
+    // 메시지 목록에 추가
+    _messages.add(userMessage);
+    notifyListeners();
+
+    // 로딩 상태 설정 (UI에 로딩 표시됨)
+    _isLoading = true;
+    notifyListeners();
   }
 
   Future<void> sendMessage(String text) async {
@@ -114,9 +157,18 @@ class ActiveChatProvider with ChangeNotifier {
     _chatSessionProvider.createNewChat();
   }
 
+  void clearActiveChat() {
+    _messagesStreamSubscription?.cancel();
+    _messages.clear();
+    _isLoading = false;
+    _messagesStreamSubscription = null;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _chatSessionProvider.removeListener(_onActiveChatChanged);
+    _messagesStreamSubscription?.cancel();
     super.dispose();
   }
 }

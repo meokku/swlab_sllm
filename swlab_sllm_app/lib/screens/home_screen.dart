@@ -411,18 +411,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                                           await chatSessionProvider
                                                               .createNewChat();
 
-                                                          // 2. 생성된 새 채팅에 메시지 전송
-                                                          await activeChatProvider
-                                                              .sendMessage(
-                                                                  text);
+                                                          // 2. 초기 메시지 설정 (로딩 상태가 됨)
+                                                          activeChatProvider
+                                                              .setInitialMessage(
+                                                                  _textController
+                                                                      .text);
+
+                                                          // 3. 텍스트 컨트롤러 초기화
                                                           _textController
                                                               .clear();
 
-                                                          // 3. 채팅 화면으로 이동
+                                                          // 4. 채팅 화면으로 즉시 이동
                                                           Navigator
                                                               .pushReplacementNamed(
                                                                   context,
                                                                   '/chat');
+
+                                                          // 5. 실제 메시지 전송은 background에서 진행
+                                                          activeChatProvider
+                                                              .sendMessage(
+                                                                  text);
                                                         } catch (e) {
                                                           // 오류 처리
                                                           ScaffoldMessenger.of(
@@ -454,23 +462,35 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                                           _textController.text
                                                               .isNotEmpty) {
                                                         try {
-                                                          // 1. 새 채팅 생성 (비동기 메서드)
+                                                          // 1. 새 채팅 생성
                                                           await chatSessionProvider
                                                               .createNewChat();
 
-                                                          // 2. 생성된 새 채팅에 메시지 전송
-                                                          await activeChatProvider
-                                                              .sendMessage(
+                                                          // 2. 초기 메시지 설정 (로딩 상태가 됨)
+                                                          activeChatProvider
+                                                              .setInitialMessage(
                                                                   _textController
                                                                       .text);
+
+                                                          // 3. 임시 저장된 텍스트 변수
+                                                          final text =
+                                                              _textController
+                                                                  .text;
+
+                                                          // 4. 텍스트 컨트롤러 초기화
                                                           _textController
                                                               .clear();
 
-                                                          // 3. 채팅 화면으로 이동
+                                                          // 5. 채팅 화면으로 즉시 이동
                                                           Navigator
                                                               .pushReplacementNamed(
                                                                   context,
                                                                   '/chat');
+
+                                                          // 6. 실제 메시지 전송은 background에서 진행
+                                                          activeChatProvider
+                                                              .sendMessage(
+                                                                  text);
                                                         } catch (e) {
                                                           // 오류 처리
                                                           ScaffoldMessenger.of(

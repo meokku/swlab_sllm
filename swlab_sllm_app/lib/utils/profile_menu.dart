@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:swlab_sllm_app/main.dart';
+import 'package:swlab_sllm_app/providers/active_chat_provider.dart';
+import 'package:swlab_sllm_app/providers/chat_session_provider.dart';
 import 'package:swlab_sllm_app/screens/login_screen.dart';
 import 'package:swlab_sllm_app/services/auth_service.dart';
 
@@ -127,8 +130,17 @@ class ProfileMenuUtil {
                           onLogoutTap();
                         } else {
                           try {
-                            await _authService.signOut();
+                            // 글로벌 컨텍스트 사용
+                            final globalContext = navigatorKey.currentContext!;
+
+                            // ChatSessionProvider 상태 초기화
+                            Provider.of<ChatSessionProvider>(globalContext,
+                                    listen: false)
+                                .resetState();
+
+                            await _authService.signOut(globalContext);
                             print("로그아웃 완료");
+
                             navigatorKey.currentState?.pushNamedAndRemoveUntil(
                                 '/', (route) => false);
                           } catch (e) {

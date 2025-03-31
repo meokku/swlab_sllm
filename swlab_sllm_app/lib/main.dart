@@ -39,7 +39,8 @@ class MyApp extends StatelessWidget {
         // LLM 서비스
         Provider<LlmService>(
           create: (context) => LlmService(
-            baseUrl: 'http://115.145.067.222:8000/predict/',
+            // port 열어두긴 했는데 오류가 있어서 일단 ngrok 계속 이용
+            baseUrl: 'https://1398-115-145-67-222.ngrok-free.app',
           ),
         ),
 

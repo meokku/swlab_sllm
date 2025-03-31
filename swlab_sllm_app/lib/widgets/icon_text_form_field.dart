@@ -9,6 +9,7 @@ class IconTextFormField extends StatefulWidget {
   final Function(String) onChanged;
   final String? Function(String?)? validator;
   final Color iconColor;
+  final bool enabled;
 
   const IconTextFormField({
     super.key,
@@ -20,6 +21,7 @@ class IconTextFormField extends StatefulWidget {
     this.hasPasswordToggle = false,
     this.keyboardType = TextInputType.text,
     this.iconColor = Colors.grey,
+    this.enabled = true,
   });
 
   @override
@@ -47,6 +49,7 @@ class _IconTextFormFieldState extends State<IconTextFormField> {
           SizedBox(width: 10),
           Expanded(
             child: TextFormField(
+              enabled: widget.enabled,
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: widget.hintText,
